@@ -1,0 +1,32 @@
+<!-- RepaymentForm.html -->
+<button type="button" id="backBtn">← Back to Dashboard</button>
+
+<h2>Record Repayment</h2>
+
+<!-- Step 1: Search by National ID -->
+<div id="step1_search">
+  <label>Search Customer (National ID)</label>
+  <input id="customerID" list="customerList" placeholder="Enter National ID..." autocomplete="off">
+  <datalist id="customerList"></datalist>
+  <button type="button" id="searchLoansBtn">Next: Find Loans</button>
+  <div id="searchStatus" style="font-size:13px; color:blue; margin-top:5px;"></div>
+</div>
+
+<!-- Step 2: Select Loan and Pay (Hidden initially) -->
+<div id="step2_pay" style="display:none; margin-top:20px; border-top: 1px solid #ccc; padding-top:15px;">
+  <label>Select Loan</label>
+  <select id="loanID"></select>
+
+  <input id="amount" placeholder="Amount" type="number" min="0" style="margin-top:10px;">
+  <label>Method</label>
+  <select id="method">
+    <option value="Cash">Cash</option>
+    <option value="KCB Bank">KCB Bank</option>
+    <option value="I &amp; M Bank">I &amp; M Bank</option>
+    <option value="Mpesa">Mpesa</option>
+  </select>
+  <input id="notes" placeholder="Notes (optional)" type="text">
+
+  <button type="button" id="saveRepaymentBtn">Record Repayment</button>
+  <div id="status"></div>
+</div>

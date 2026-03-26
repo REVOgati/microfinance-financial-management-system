@@ -1,0 +1,37 @@
+<!-- OperationsForm.html -->
+<button type="button" id="backBtn">← Back to Dashboard</button>
+
+<h2>Operations</h2>
+
+<div style="display:flex; gap:10px; margin-bottom:15px;">
+  <button type="button" id="tabTopUp" onclick="switchOpsTab('topup')" style="background:teal;">Manual Top-Up</button>
+  <button type="button" id="tabStatus" onclick="switchOpsTab('status')" style="background:#aaa;">View Status</button>
+</div>
+
+<!-- Panel 1: Manual Top-Up -->
+<div id="panelTopUp">
+  <h3 style="margin-top:0;">Manual Top-Up</h3>
+
+  <label>Sub-Reserve</label>
+  <select id="subReserve">
+    <option value="Cash">Cash</option>
+    <option value="KCB Bank">KCB Bank</option>
+    <option value="I &amp; M Bank">I &amp; M Bank</option>
+    <option value="Mpesa">Mpesa</option>
+  </select>
+
+  <input id="topUpAmount" placeholder="Amount to Add (Ksh)" type="number" min="1">
+  <input id="topUpNotes" placeholder="Notes (optional)" type="text">
+
+  <button type="button" id="topUpBtn">Add Funds</button>
+  <div id="topUpStatus" style="margin-top:8px; font-size:13px; color:green;"></div>
+</div>
+
+<!-- Panel 2: View Status -->
+<div id="panelStatus" style="display:none;">
+  <h3 style="margin-top:0;">Reserve Status</h3>
+  <button type="button" id="loadStatusBtn">Load Current Status</button>
+  <div id="statusDisplay" style="margin-top:10px; font-size:13px;"></div>
+</div>
+
+

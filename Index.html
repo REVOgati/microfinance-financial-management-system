@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body{font-family:Arial; background:#F5F5F5; padding:20px;}
+    h1{color:teal;}
+    button{
+      background:coral; color:white; border:none; padding:12px 20px; margin:5px;
+      border-radius:6px; cursor:pointer;
+    }
+    button:hover{background:#ff6a3d;}
+    input, select{width:100%; padding:8px; margin:6px 0; border:1px solid #ccc; border-radius:4px;}
+    #status{margin-top:10px; font-size:13px; color:green;}
+    #dashboard {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Mobile Responsiveness */
+    @media (max-width: 600px) {
+      #dashboard {
+        flex-direction: column !important;
+        align-items: center !important;
+        display: flex !important;
+      }
+      #dashboard button {
+        width: 85% !important;
+        max-width: 320px !important;
+        padding: 15px 20px !important;
+        margin: 7px 0 !important;
+        font-size: 16px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div style="text-align: center; margin-bottom: 15px;">
+  <!-- The logoUrl is injected securely from Main.gs and fetched from Google Drive -->
+  <img id="mainLogo" src="<?= logoUrl ?>" alt="Company Logo" style="max-width: 100%; height: auto; max-height: 120px;">
+  <h1>Direct Capitol Management System</h1>
+</div>
+
+<div id="dashboard">
+  <button onclick="showForm('CustomerForm')">Add Customer</button>
+  <button onclick="showForm('LoanForm')">Issue Loan</button>
+  <button onclick="showForm('RepaymentForm')">Record Repayment</button>
+  <button onclick="showForm('SavingsForm','DEPOSIT')">Savings Deposit</button>
+  <button onclick="showForm('SavingsForm','WITHDRAWAL')">Savings Withdrawal</button>
+  <button onclick="showForm('OperationsForm')">Operations</button>
+  <button onclick="window.open('<?= sheetsUrl ?>','_blank')" style="background:teal;">Sheets (Database)</button>
+</div>
+
+<div id="formContainer"></div>
+
+<script>
+window.currentFormParam = null;
+
+// Global helper for OperationsForm tab switching.
+// Must live here (not in OperationsForm.html) because browsers do not execute
+// <script> tags injected via innerHTML — only top-level page scripts run.
+function switchOpsTab(tab) {
+  document.getElementById('panelTopUp').style.display  = (tab === 'topup')  ? '' : 'none';
+  document.getElementById('panelStatus').style.display = (tab === 'status') ? '' : 'none';
+  document.getElementById('tabTopUp').style.background  = (tab === 'topup')  ? 'teal' : '#aaa';
+  document.getElementById('tabStatus').style.background = (tab === 'status') ? 'teal' : '#aaa';
+}
+
+function showForm(formName, extraParam) {
+  window.currentFormParam = extraParam;
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('formContainer').innerHTML = '<h3 style="color:teal;">Coming up...</h3>';
+  google.script.run.withSuccessHandler(html => {
+    document.getElementById('formContainer').innerHTML = html;
+    initFormScripts();
+  }).getFormHtml(formName);
+}
+
+function backToDashboard() {
+  document.getElementById('formContainer').innerHTML = '';
+  const dash = document.getElementById('dashboard');
+  dash.style.display = '';  // Remove inline style — let CSS & media queries take over
+}
+
+function initFormScripts() {
+  const backBtn = document.getElementById('backBtn');
+  if(backBtn) backBtn.addEventListener('click', backToDashboard);
+
+  // -------- CustomerForm ----------
+  const saveCustomerBtn = document.getElementById('saveCustomerBtn');
+  if(saveCustomerBtn){
+    saveCustomerBtn.addEventListener('click', ()=>{
+      const data = {
+        firstName: document.getElementById("firstName").value.trim(),
+        lastName: document.getElementById("lastName").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        national_id: document.getElementById("national_id").value.trim(),
+        kra_pin: document.getElementById("kra_pin").value.trim(),
+        notes: document.getElementById("notes").value.trim()
+      };
+      if(!data.firstName || !data.lastName || !data.phone || !data.national_id){
+        document.getElementById("status").innerHTML = "<span style='color:red'>First name, last name, phone, and national ID are required.</span>";
+        return;
+      }
+      saveCustomerBtn.disabled = true;
+      document.getElementById("status").innerHTML = "Saving customer...";
+      google.script.run
+        .withSuccessHandler(msg=>{
+          saveCustomerBtn.disabled = false;
+          document.getElementById("status").innerHTML = msg;
+          document.querySelectorAll("input").forEach(i=>i.value='');
+        })
+        .withFailureHandler(err=>{
+          saveCustomerBtn.disabled = false;
+          document.getElementById("status").innerHTML = "<span style='color:red'>Error: "+err.message+"</span>";
+        })
+        .saveCustomer(data);
+    });
+  }
+
+  // -------- LoanForm ----------
+  const saveLoanBtn = document.getElementById('saveLoanBtn');
+  if(saveLoanBtn){
+    const datalist = document.getElementById('customerList');
+    if(datalist){
+      google.script.run.withSuccessHandler(customers=>{
+        datalist.innerHTML='';
+        customers.forEach(c=>{
+          const option = document.createElement('option');
+          option.value = c.id;
+          datalist.appendChild(option);
+        });
+      }).getCustomerList();
+    }
+
+    saveLoanBtn.addEventListener('click', ()=>{
+      const data={
+        national_id: document.getElementById('customerID').value,
+        principal: parseFloat(document.getElementById('principal').value),
+        rate: parseFloat(document.getElementById('rate').value),
+        period: parseInt(document.getElementById('period').value),
+        expectedEndDate: document.getElementById('expectedEndDate').value,
+        frequency: document.getElementById('frequency').value,
+        paymentMethod: document.getElementById('paymentMethod').value
+      };
+      if(!data.national_id || !data.principal || !data.rate || !data.period || !data.expectedEndDate){
+        document.getElementById("status").innerHTML="<span style='color:red'>All fields are required!</span>";
+        return;
+      }
+      saveLoanBtn.disabled = true;
+      document.getElementById("status").innerHTML="Saving loan...";
+      google.script.run
+        .withSuccessHandler(msg=>{
+          saveLoanBtn.disabled = false;
+          document.getElementById("status").innerHTML = msg;
+          document.querySelectorAll("input").forEach(i=>i.value='');
+        })
+        .withFailureHandler(err=>{
+          saveLoanBtn.disabled = false;
+          document.getElementById("status").innerHTML="<span style='color:red'>Error: "+err.message+"</span>";
+        })
+        .saveLoan(data);
+    });
+  }
+
+  // -------- RepaymentForm ----------
+  const saveRepaymentBtn = document.getElementById('saveRepaymentBtn');
+  if(saveRepaymentBtn){
+    const datalist = document.getElementById('customerList');
+    if(datalist){
+      google.script.run.withSuccessHandler(customers=>{
+        datalist.innerHTML='';
+        customers.forEach(c=>{
+          const option = document.createElement('option');
+          option.value = c.id;
+          datalist.appendChild(option);
+        });
+      }).getCustomerList();
+    }
+
+    const searchLoansBtn = document.getElementById('searchLoansBtn');
+    if(searchLoansBtn){
+      searchLoansBtn.addEventListener('click', ()=>{
+        const natId = document.getElementById('customerID').value;
+        if(!natId){
+          document.getElementById('searchStatus').innerHTML = "<span style='color:red'>Please enter a National ID.</span>";
+          return;
+        }
+        document.getElementById('searchStatus').innerHTML = "<span style='color:blue'>Searching loans...</span>";
+        google.script.run
+          .withSuccessHandler(loans => {
+            document.getElementById('searchStatus').innerHTML = "";
+            if(loans.length === 0){
+              document.getElementById('searchStatus').innerHTML = "<span style='color:red'>No loans found for this customer.</span>";
+              document.getElementById('step2_pay').style.display = 'none';
+              return;
+            }
+            const loanSel = document.getElementById('loanID');
+            loanSel.innerHTML = '';
+            loans.forEach(l => {
+              const option = document.createElement('option');
+              option.value = l.loanId;
+              // Shows LoanID, Issue Date, and Remaining Balance accurately
+              option.text = `ID: ${l.loanId} | Issued: ${l.issueDate} | Bal: Ksh ${l.remainingBalance}`;
+              loanSel.add(option);
+            });
+            document.getElementById('step2_pay').style.display = 'block';
+          })
+          .withFailureHandler(err => {
+            console.error("Serverside Error:", err);
+            document.getElementById('searchStatus').innerHTML = "<span style='color:red'>Error: " + err.message + "</span>";
+          })
+          .getLoansByNationalId(natId);
+      });
+    }
+
+    saveRepaymentBtn.addEventListener('click', ()=>{
+      const data={
+        loanID: document.getElementById('loanID').value,
+        amount: parseFloat(document.getElementById('amount').value),
+        method: document.getElementById('method').value,
+        notes: document.getElementById('notes').value
+      };
+      if(!data.loanID || !data.amount){
+        document.getElementById("status").innerHTML="<span style='color:red'>Loan and Amount are required!</span>";
+        return;
+      }
+      saveRepaymentBtn.disabled = true;
+      document.getElementById("status").innerHTML = "Recording loan payment...";
+      google.script.run
+        .withSuccessHandler(msg=>{
+          saveRepaymentBtn.disabled = false;
+          // Usually 'msg' carries "Repayment recorded" strictly from backend, but using exactly what you requested:
+          document.getElementById("status").innerHTML = "Payment recorded successfully";
+          document.getElementById('amount').value='';
+          document.getElementById('notes').value='';
+        })
+        .withFailureHandler(err=>{
+          saveRepaymentBtn.disabled = false;
+          document.getElementById("status").innerHTML="<span style='color:red'>Error: "+err.message+"</span>";
+        })
+        .saveRepayment(data);
+    });
+  }
+
+  // -------- SavingsForm ----------
+  const saveSavingsBtn = document.getElementById('saveSavingsBtn');
+  if(saveSavingsBtn){
+    const datalist = document.getElementById('customerList');
+    if(datalist){
+      google.script.run.withSuccessHandler(customers=>{
+        datalist.innerHTML='';
+        customers.forEach(c=>{
+          const option = document.createElement('option');
+          option.value = c.id;
+          datalist.appendChild(option);
+        });
+      }).getCustomerList();
+    }
+
+    // Set type if withdraw
+    const typeInput = document.getElementById('type');
+    const title = document.getElementById('formTitle');
+    if (window.currentFormParam === 'WITHDRAWAL') {
+      typeInput.value = 'WITHDRAWAL';
+      title.innerText = 'Savings Withdrawal';
+    } else {
+      typeInput.value = 'DEPOSIT';
+      title.innerText = 'Savings Deposit';
+    }
+
+    saveSavingsBtn.addEventListener('click', ()=>{
+      const data={
+        national_id: document.getElementById('customerID').value,
+        type: document.getElementById('type').value,
+        amount: parseFloat(document.getElementById('amount').value),
+        notes: document.getElementById('notes').value,
+        paymentMethod: document.getElementById('paymentMethod').value
+      };
+      if(!data.national_id || !data.amount){
+        document.getElementById("status").innerHTML="<span style='color:red'>Customer and Amount are required!</span>";
+        return;
+      }
+      
+      saveSavingsBtn.disabled = true;
+      const isWithdrawal = data.type === 'WITHDRAWAL';
+      document.getElementById("status").innerHTML = isWithdrawal ? "Processing withdrawal..." : "Recording deposit...";
+      
+      google.script.run
+        .withSuccessHandler(msg=>{
+          saveSavingsBtn.disabled = false;
+          // msg contains the new balance from the backend
+          document.getElementById("status").innerHTML = msg; 
+          document.getElementById('amount').value='';
+          document.getElementById('notes').value='';
+        })
+        .withFailureHandler(err=>{
+          saveSavingsBtn.disabled = false;
+          document.getElementById("status").innerHTML="<span style='color:red'>Error: "+err.message+"</span>";
+        })
+        .saveSavings(data);
+    });
+  }  // end if(saveSavingsBtn)
+
+  // -------- OperationsForm ----------
+  const topUpBtn = document.getElementById('topUpBtn');
+  if(topUpBtn){
+    topUpBtn.addEventListener('click', ()=>{
+      const data = {
+        subReserve: document.getElementById('subReserve').value,
+        amount: parseFloat(document.getElementById('topUpAmount').value),
+        notes: document.getElementById('topUpNotes').value
+      };
+      if(!data.subReserve || isNaN(data.amount) || data.amount <= 0){
+        document.getElementById('topUpStatus').innerHTML = "<span style='color:red'>Select a sub-reserve and enter a positive amount.</span>";
+        return;
+      }
+      topUpBtn.disabled = true;
+      document.getElementById('topUpStatus').innerHTML = "Processing top-up...";
+      google.script.run
+        .withSuccessHandler(msg=>{
+          topUpBtn.disabled = false;
+          document.getElementById('topUpStatus').innerHTML = msg;
+          document.getElementById('topUpAmount').value = '';
+          document.getElementById('topUpNotes').value = '';
+        })
+        .withFailureHandler(err=>{
+          topUpBtn.disabled = false;
+          document.getElementById('topUpStatus').innerHTML = "<span style='color:red'>Error: "+err.message+"</span>";
+        })
+        .manualTopUp(data);
+    });
+  }
+
+  const loadStatusBtn = document.getElementById('loadStatusBtn');
+  if(loadStatusBtn){
+    loadStatusBtn.addEventListener('click', ()=>{
+      loadStatusBtn.disabled = true;
+      document.getElementById('statusDisplay').innerHTML = "<em>Loading...</em>";
+      google.script.run
+        .withSuccessHandler(status=>{
+          loadStatusBtn.disabled = false;
+          const rows = Object.entries(status).map(([name, info]) =>
+            `<tr><td style="padding:6px;">${name}</td><td style="padding:6px; text-align:right;">Ksh ${info.balance.toFixed(2)}</td><td style="padding:6px; color:#555;">${info.lastUpdated || "-"}</td></tr>`
+          ).join('');
+          document.getElementById('statusDisplay').innerHTML =
+            `<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top:8px;">`+
+            `<thead><tr style="background:#eee;"><th style="padding:6px; text-align:left;">Sub-Reserve</th><th style="padding:6px;">Balance</th><th style="padding:6px;">Last Updated</th></tr></thead>`+
+            `<tbody>${rows}</tbody></table>`;
+        })
+        .withFailureHandler(err=>{
+          loadStatusBtn.disabled = false;
+          document.getElementById('statusDisplay').innerHTML = "<span style='color:red'>Error: "+err.message+"</span>";
+        })
+        .getOperationsStatus();
+    });
+  }
+
+}  // end initFormScripts
+</script>
+</body>
+</html>

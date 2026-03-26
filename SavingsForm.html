@@ -1,0 +1,23 @@
+<!-- SavingsForm.html -->
+<button type="button" id="backBtn">← Back to Dashboard</button>
+
+<h2 id="formTitle">Savings Transaction</h2>
+
+<label>Customer (National ID)</label>
+<input id="customerID" list="customerList" placeholder="Search or select National ID..." autocomplete="off">
+<datalist id="customerList"></datalist>
+
+<input id="amount" placeholder="Amount" type="number" min="0">
+<input id="notes" placeholder="Notes (optional)" type="text">
+<input type="hidden" id="type" value="DEPOSIT">
+
+<label>Payment Method</label>
+<select id="paymentMethod">
+  <option value="Cash">Cash</option>
+  <option value="KCB Bank">KCB Bank</option>
+  <option value="I &amp; M Bank">I &amp; M Bank</option>
+  <option value="Mpesa">Mpesa</option>
+</select>
+
+<button type="button" id="saveSavingsBtn">Submit</button>
+<div id="status"></div>

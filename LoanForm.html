@@ -1,0 +1,34 @@
+<!-- LoanForm.html -->
+<button type="button" id="backBtn">← Back to Dashboard</button>
+
+<h2>Issue Loan</h2>
+
+<label>Customer (National ID)</label>
+<input id="customerID" list="customerList" placeholder="Search or select National ID..." autocomplete="off">
+<datalist id="customerList"></datalist>
+
+<input id="principal" placeholder="Principal Amount" type="number" min="0">
+<input id="rate" placeholder="Interest Rate (%)" type="number" step="0.01" min="0">
+<input id="period" placeholder="Period (number of payments)" type="number" min="1">
+<label>Expected End Date (DD/MM/YYYY):</label>
+<div style="display: flex; gap: 5px;">
+  <input id="expectedEndDate" type="text" placeholder="DD/MM/YYYY" style="flex: 1;">
+  <input type="date" title="Open Calendar" onchange="if(this.value){ let d=this.value.split('-'); document.getElementById('expectedEndDate').value=d[2]+'/'+d[1]+'/'+d[0]; }" style="width: 45px; cursor: pointer;">
+</div>
+
+<label>Payment Frequency</label>
+<select id="frequency">
+  <option value="Monthly">Monthly</option>
+  <option value="Weekly">Weekly</option>
+</select>
+
+<label>Payment Method</label>
+<select id="paymentMethod">
+  <option value="Cash">Cash</option>
+  <option value="KCB Bank">KCB Bank</option>
+  <option value="I &amp; M Bank">I &amp; M Bank</option>
+  <option value="Mpesa">Mpesa</option>
+</select>
+
+<button type="button" id="saveLoanBtn">Issue Loan</button>
+<div id="status"></div>

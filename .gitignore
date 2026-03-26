@@ -1,0 +1,3 @@
+# Markdown documentation files — exclude all except the main developer README
+*.md
+!README.md
