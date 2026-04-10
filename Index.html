@@ -187,7 +187,7 @@ function initFormScripts() {
     const searchLoansBtn = document.getElementById('searchLoansBtn');
     if(searchLoansBtn){
       searchLoansBtn.addEventListener('click', ()=>{
-        const natId = document.getElementById('customerID').value;
+        const natId = document.getElementById('customerID').value.trim();
         if(!natId){
           document.getElementById('searchStatus').innerHTML = "<span style='color:red'>Please enter a National ID.</span>";
           return;
@@ -196,8 +196,8 @@ function initFormScripts() {
         google.script.run
           .withSuccessHandler(loans => {
             document.getElementById('searchStatus').innerHTML = "";
-            if(loans.length === 0){
-              document.getElementById('searchStatus').innerHTML = "<span style='color:red'>No loans found for this customer.</span>";
+            if(!loans || loans.length === 0){
+              document.getElementById('searchStatus').innerHTML = "<span style='color:red'>No active loans found for this ID.</span>";
               document.getElementById('step2_pay').style.display = 'none';
               return;
             }

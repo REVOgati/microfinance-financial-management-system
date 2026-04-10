@@ -274,7 +274,7 @@ function saveLoan(data) {
   // Read 13 cols upfront — used for both existence check and later customer update,
   // eliminating a second getRange call that previously re-read the same sheet.
   const customerData = customerSheet.getRange(2, 1, customerSheet.getLastRow() - 1, 13).getValues();
-  const custIndex = customerData.findIndex(r => r[6] == data.national_id);
+  const custIndex = customerData.findIndex(r => normalizeId(r[6]) === normalizeId(data.national_id));
   if (custIndex < 0) throw new Error("Customer not found");
 
   const periodMonths = parseInt(data.period);
@@ -382,7 +382,7 @@ function saveRepayment(data) {
 
   // Update customer outstanding loans
   const custData = customerSheet.getRange(2, 1, customerSheet.getLastRow() - 1, 13).getValues();
-  const custIndex = custData.findIndex(r => r[6] == national_id);
+  const custIndex = custData.findIndex(r => String(r[6]).trim() === String(national_id).trim());
   if (custIndex >= 0) {
     const newOutstanding = custData[custIndex][11] - amountPaid;
     customerSheet.getRange(2 + custIndex, 12).setValue(newOutstanding > 0 ? newOutstanding : 0);
@@ -405,7 +405,7 @@ function saveSavings(data) {
   
   // Find customer to check balance
   const custData = customerSheet.getRange(2, 1, customerSheet.getLastRow() - 1, 13).getValues();
-  const custIndex = custData.findIndex(r => r[6] == data.national_id);
+  const custIndex = custData.findIndex(r => normalizeId(r[6]) === normalizeId(data.national_id));
   
   if (custIndex < 0) throw new Error("Customer not found.");
 
@@ -459,7 +459,7 @@ function getCustomerList() {
   const sheet = getSS().getSheetByName("customers");
   if (sheet.getLastRow() < 2) return [];
   const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 7).getValues(); // up to column G (National ID)
-  return data.map(r => ({id: r[6], name: r[3]})); // Use National ID as ID
+  return data.map(r => ({id: String(r[6]), name: r[3]})); // Stringify to preserve alphanumeric IDs in datalist
 }
 
 // getLoanList — currently unused (no caller in Index.html). Kept for future use.
@@ -470,6 +470,14 @@ function getCustomerList() {
 //   return data.map(r => ({id: r[0]}));
 // }
 
+// Strips invisible Unicode characters (zero-width spaces, non-breaking spaces, BOM, etc.)
+// that can be invisibly present when cell values are pasted or migrated into Sheets.
+function normalizeId(val) {
+  return String(val)
+    .replace(/[\u0000-\u001F\u007F-\u009F\u00A0\u200B-\u200D\u2060\uFEFF]/g, '')
+    .trim();
+}
+
 function getLoansByNationalId(nationalId) {
   const sheet = getSS().getSheetByName("loans");
   if (sheet.getLastRow() < 2) return [];
@@ -477,14 +485,15 @@ function getLoansByNationalId(nationalId) {
   // Read columns A through M (13 columns)
   const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
   const userLoans = [];
+  const needle = normalizeId(nationalId);
   
   for (let i = 0; i < data.length; i++) {
     // Column B (national_id) is at index 1, Column M (Remaining_Balance) is at index 12.
     // Only return loans that still have an outstanding balance (unpaid/partially paid).
-    if (String(data[i][1]) === String(nationalId) && parseFloat(data[i][12]) > 0) {
+    if (normalizeId(data[i][1]) === needle && parseFloat(data[i][12]) > 0) {
       userLoans.push({
-        loanId: data[i][0],              // Col A: loan_id (index 0)
-        issueDate: data[i][8],           // Col I: issue_date (index 8)
+        loanId: String(data[i][0]),      // Col A: loan_id (index 0)
+        issueDate: String(data[i][8]),   // Col I: issue_date (index 8) — stringify to avoid Date object serialization issues
         remainingBalance: data[i][12]    // Col M: Remaining_Balance (index 12)
       });
     }
@@ -506,6 +515,52 @@ function testGetLoansByNationalId() {
   
   const result = getLoansByNationalId(sampleNatId); 
   Logger.log(JSON.stringify(result, null, 2));
+}
+
+// ================= Diagnostic Test: Input a specific National ID =================
+// HOW TO USE:
+//   1. Replace the value of TEST_NATIONAL_ID below with an ID from your spreadsheet.
+//   2. In the GAS Editor, select "debugGetLoansByNationalId" from the function dropdown.
+//   3. Click Run and open View > Logs to see the output.
+function debugGetLoansByNationalId() {
+  const TEST_NATIONAL_ID = "PASTE_YOUR_NATIONAL_ID_HERE"; // <-- replace this
+
+  // 1. Confirm which spreadsheet is being read
+  Logger.log("=== SPREADSHEET CHECK ===");
+  Logger.log("SPREADSHEET_ID in use: " + SPREADSHEET_ID);
+  const ss = getSS();
+  Logger.log("Spreadsheet name: " + ss.getName());
+
+  // 2. Confirm the loans sheet exists and has data
+  Logger.log("\n=== LOANS SHEET CHECK ===");
+  const sheet = ss.getSheetByName("loans");
+  if (!sheet) {
+    Logger.log("ERROR: 'loans' sheet NOT FOUND. Check sheet tab name.");
+    return;
+  }
+  const lastRow = sheet.getLastRow();
+  Logger.log("Last row in loans sheet: " + lastRow);
+  if (lastRow < 2) {
+    Logger.log("ERROR: loans sheet has no data rows.");
+    return;
+  }
+
+  // 3. Print every National ID in col B so you can spot mismatches
+  Logger.log("\n=== ALL NATIONAL IDs IN LOANS SHEET (Col B) ===");
+  const allData = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+  allData.forEach((row, i) => {
+    Logger.log("Row " + (i + 2) + " | LoanID: " + row[0] + " | NationalID: '" + row[1] + "' | RemainingBal: " + row[12]);
+  });
+
+  // 4. Run the actual lookup with the ID you provided
+  Logger.log("\n=== LOOKUP RESULT for '" + TEST_NATIONAL_ID + "' ===");
+  const result = getLoansByNationalId(TEST_NATIONAL_ID);
+  if (result.length === 0) {
+    Logger.log("No loans returned. Check that the ID above exactly matches one in Col B (spacing, type, leading zeros).");
+  } else {
+    Logger.log("Loans found: " + result.length);
+    Logger.log(JSON.stringify(result, null, 2));
+  }
 }
 
 // ================= Test Functions =================
